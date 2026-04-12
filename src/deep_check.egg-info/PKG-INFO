@@ -1,0 +1,167 @@
+Metadata-Version: 2.4
+Name: deep-check
+Version: 0.4.1
+Summary: DeepCheck — Analisador de Dependências Python
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: streamlit>=1.33.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: toml>=0.10.2
+Requires-Dist: faker>=24.0.0
+Requires-Dist: plotly>=5.0.0
+Requires-Dist: pandas>=2.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.1.0; extra == "dev"
+Requires-Dist: pytest-cov>=5.0.0; extra == "dev"
+Requires-Dist: ruff>=0.4.0; extra == "dev"
+Requires-Dist: mypy>=1.9.0; extra == "dev"
+Requires-Dist: pre-commit>=3.7.0; extra == "dev"
+
+# DepCheck — Cookbook de Desenvolvimento
+
+> **Dev 1 | Ambiente Zero** — Esta é a base que todos os outros devs clonam para iniciar seu trabalho.
+
+---
+
+## 1. Pré-requisito: Instalar o Docker
+
+O projeto roda **100% dentro do Docker**. Você não precisa instalar Python, pip ou qualquer dependência manualmente.
+
+### Windows
+
+```powershell
+# Via winget (já vem no Windows 10/11):
+winget install -e --id Docker.DockerDesktop
+```
+
+Após a instalação:
+- ⚠️ **Reinicie o computador** (obrigatório — ativa o WSL 2)
+- Abra o **Docker Desktop** pelo menu Iniciar e aguarde o ícone na bandeja ficar **verde** (Running)
+
+### macOS
+
+```bash
+brew install --cask docker
+```
+
+Abra o aplicativo **Docker.app** e aguarde o menu de status ficar verde.
+
+### Verificar instalação
+
+```bash
+docker --version
+docker compose version
+```
+
+---
+
+## 2.  Criando variáveis de ambiente
+
+```bash
+# Crie seu arquivo de variáveis de ambiente (só na primeira vez)
+cp .env.example .env
+```
+
+> Edite o `.env` se precisar alterar o tamanho máximo de upload ou o nível de log.
+
+---
+
+## 3. **Rodar a Qualidade de Código (Lint & Config):**
+   ```bash
+   ruff check .
+   mypy .
+   ```
+
+4. **Testes Unitários e Política de Commit:**
+   Este repositório faz uso obrigatório de TDD e conta com **testes na raiz**, executados isoladamente no container Docker com barreiras de cobertura.
+   - A sua suite deve sempre ser executada via `docker compose run --rm app pytest --cov=src --cov=core --cov-fail-under=80 tests/`. 
+   - A política de `.pre-commit-config.yaml` proíbe terminantemente a emissão de commits que falhem em testes ou abaixem a cobertura de código para menos de 80%.
+   - Use `pre-commit install` para vincular esta trava em sua máquina.
+
+5. **Iniciar a Interface (Streamlit):**
+```bash
+docker compose up --build
+```
+
+- `--build` reconstrói a imagem se houver mudanças no `Dockerfile` ou `pyproject.toml`.
+- A aplicação estará disponível em: **http://localhost:8501**
+
+Para parar:
+
+```bash
+docker compose down
+```
+
+---
+
+## 4. Fluxo de trabalho diário
+
+```bash
+# Iniciar
+docker compose up
+
+# Parar
+docker compose down
+
+# Ver logs em tempo real
+docker compose logs -f app
+
+# Reconstruir após mudar pyproject.toml ou Dockerfile
+docker compose up --build
+```
+
+> O código-fonte é montado como **volume**, então alterações nos arquivos `.py` são refletidas automaticamente — **sem precisar rebuildar**.
+
+---
+
+## 5. Rodar testes
+
+```bash
+docker compose exec app python -m pytest tests/ -v
+```
+
+---
+
+## 6. Desenvolvimento local (sem Docker)
+
+```bash
+# Instalar uv
+pip install uv
+
+# Criar venv e instalar dependências
+uv venv .venv
+source .venv/bin/activate  # Linux/macOS
+.venv\Scripts\activate     # Windows
+
+uv pip install -e ".[dev]"
+
+# Instalar hooks de pre-commit
+pre-commit install
+```
+
+---
+
+
+
+## 7. Variáveis de ambiente (`.env`)
+
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `APP_ENV` | `development` | `development` ou `production` |
+| `MAX_ZIP_SIZE_MB` | `50` | Limite de upload do ZIP (MB) |
+| `TEMP_DIR` | `/tmp/depcheck` | Dir. de extração temporária |
+| `LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
+
+---
+
+## 8. Qualidade de código (pre-commit)
+
+```bash
+# Instalar os hooks (só uma vez, após clonar)
+docker compose exec app pre-commit install
+
+# Rodar manualmente em todos os arquivos
+docker compose exec app pre-commit run --all-files
+```
+
+Ferramentas configuradas: **Ruff** (lint + format) · **Mypy** (tipos) · verificações de YAML/TOML

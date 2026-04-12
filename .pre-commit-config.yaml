@@ -1,0 +1,41 @@
+# .pre-commit-config.yaml
+# Hooks de qualidade de código executados antes de cada commit.
+# Instale com: uv pip install pre-commit && pre-commit install
+
+repos:
+  # ── Ruff: lint + format ─────────────────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # ── Mypy: type checking ─────────────────────────────────────
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.9.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-toml, python-dotenv]
+        args: [--ignore-missing-imports]
+
+  # ── Pytest: run unit tests ──────────────────────────────────
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest local hook
+        entry: docker compose run --rm app pytest --cov=src --cov=core --cov-fail-under=80 tests/
+        language: system
+        pass_filenames: false
+        always_run: true
+
+  # ── Utilitários gerais ──────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: debug-statements
