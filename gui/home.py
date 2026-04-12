@@ -360,7 +360,7 @@ def render_footer() -> None:
     """Renderiza o rodapé da página."""
     st.divider()
     st.markdown(
-        "<small>🔬 DepCheck v0.4.1 — Sprint 4 Final | Projeto Paralelo RP3</small>",
+        "<small>🔬 DepCheck v0.4.1 — Sprint 4 Final</small>",
         unsafe_allow_html=True,
     )
 

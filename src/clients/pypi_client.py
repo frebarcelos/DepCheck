@@ -22,7 +22,7 @@ _PYPI_BASE_URL: str = "https://pypi.org/pypi"
 # Timeout padrão em segundos para chamadas ao PyPI
 _REQUEST_TIMEOUT: int = 10
 # Cabeçalho User-Agent para identificar o cliente ao PyPI
-_USER_AGENT: str = "DepCheck/0.4 (github.com/projeto-paralelo-rp3)"
+_USER_AGENT: str = "DepCheck/0.4 (github.com/DepCheck)"
 
 
 @lru_cache(maxsize=128)
