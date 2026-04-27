@@ -16,8 +16,11 @@ from src.clients.pypi_client import get_pypi_package_info
 
 logger = logging.getLogger(__name__)
 
-# Formato de data usado pelo PyPI na chave "upload_time"
-_PYPI_DATE_FMT: str = "%Y-%m-%dT%H:%M:%S"
+# Formatos de data aceitos pelo parser (PyPI às vezes inclui microsegundos)
+_PYPI_DATE_FMTS: tuple[str, ...] = (
+    "%Y-%m-%dT%H:%M:%S.%f",
+    "%Y-%m-%dT%H:%M:%S",
+)
 
 
 def _extract_package_name(dep: str) -> str:
@@ -44,11 +47,13 @@ def _parse_upload_date(upload_time_str: str) -> datetime | None:
     Returns:
         Objeto datetime ou None se o parse falhar.
     """
-    try:
-        return datetime.strptime(upload_time_str, _PYPI_DATE_FMT)
-    except ValueError:
-        logger.debug("Formato de data inválido: '%s'", upload_time_str)
-        return None
+    for fmt in _PYPI_DATE_FMTS:
+        try:
+            return datetime.strptime(upload_time_str, fmt)
+        except ValueError:
+            continue
+    logger.debug("Formato de data não reconhecido: '%s'", upload_time_str)
+    return None
 
 
 def _compute_days_outdated(upload_time: datetime) -> int:
