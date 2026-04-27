@@ -38,8 +38,7 @@ PYPROJECT_FILE: str = "pyproject.toml"
 # Sentinel usado quando o tamanho de um pacote no PyPI não está disponível.
 SIZE_UNKNOWN: int = -1
 
-# Diretórios excluídos por padrão durante a varredura de arquivos do projeto.
-# Usado por analisadores que precisam ignorar pastas não-produtivas.
+# Diretórios excluídos por padrão durante a varredura — exibidos na GUI como opções.
 DEFAULT_EXCLUDED_DIRS: list[str] = [
     "tests",
     "test",
@@ -53,16 +52,3 @@ DEFAULT_EXCLUDED_DIRS: list[str] = [
     "build",
     "dist",
 ]
-
-# ── Cores para Gráficos (GUI) ─────────────────────────────────────────────────
-# Defasagem
-COLOR_OUTDATED_CRITICAL: str = "#ef4444"
-COLOR_OUTDATED_HIGH: str = "#f97316"
-COLOR_OUTDATED_MEDIUM: str = "#f59e0b"
-COLOR_OUTDATED_LOW: str = "#22c55e"
-
-# Tamanho
-COLOR_SIZE_XL: str = "#6366f1"
-COLOR_SIZE_L: str = "#818cf8"
-COLOR_SIZE_M: str = "#a5b4fc"
-COLOR_SIZE_S: str = "#c7d2fe"

@@ -18,8 +18,10 @@ def test_filter_extracted(tmp_path, monkeypatch):
     ignored_dir_py.write_text("hidden")
     
     kept = filter_extracted(tmp_path)
-    
+
     assert len(kept) == 1
     assert kept[0].name == "main.py"
-    assert not ignored_txt.exists()
+    # Arquivos não-.py são preservados no disco (manifests como pyproject.toml precisam sobreviver)
+    assert ignored_txt.exists()
+    # Diretórios ignorados (.git, tests/, etc.) ainda são removidos
     assert not ignored_dir.exists()

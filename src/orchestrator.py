@@ -10,6 +10,7 @@ Pipeline procedural central que orquestra todas as etapas da análise:
 
 Paradigma: Procedimental — apenas funções, sem classes de domínio.
 """
+from __future__ import annotations
 
 import logging
 from datetime import datetime
@@ -28,18 +29,32 @@ logger = logging.getLogger(__name__)
 
 
 def _find_manifest(project_path: Path, filename: str) -> Path | None:
-    """Localiza um manifesto na raiz ou dentro da primeira subpasta (ZIPs com pasta raiz)."""
+    """
+    Localiza um arquivo de manifesto na raiz do projeto extraído ou dentro
+    da primeira subpasta de nível superior (para ZIPs com pasta raiz).
+
+    Args:
+        project_path: Raiz do diretório extraído.
+        filename: Nome do arquivo a localizar (ex: "pyproject.toml").
+
+    Returns:
+        Path do arquivo encontrado, ou None se não existir.
+    """
     direct = project_path / filename
     if direct.exists():
         return direct
+
+    # Suporte a ZIPs com pasta de nível superior (ex: meu-projeto.zip → meu-projeto/pyproject.toml)
     try:
         for child in sorted(project_path.iterdir()):
             if child.is_dir():
                 nested = child / filename
                 if nested.exists():
+                    logger.debug("Manifesto encontrado em subpasta: %s", nested)
                     return nested
     except PermissionError:
         pass
+
     return None
 
 
@@ -47,6 +62,8 @@ def _run_parsers(project_path: Path) -> list[str]:
     """
     Executa os parsers de manifesto (pyproject.toml e requirements.txt)
     e retorna a lista consolidada de dependências declaradas.
+
+    Suporta ZIPs com e sem pasta raiz de nível superior.
 
     Args:
         project_path: Raiz do projeto extraído a ser analisado.
@@ -57,9 +74,8 @@ def _run_parsers(project_path: Path) -> list[str]:
         Em caso de falha em qualquer parser, o erro é logado e ignorado.
     """
     deps: dict[str, str] = {}
-    pyproject = _find_manifest(project_path, "pyproject.toml")
-    req = _find_manifest(project_path, "requirements.txt")
 
+    pyproject = _find_manifest(project_path, "pyproject.toml")
     if pyproject:
         try:
             p_deps = parse_pyproject(pyproject)
@@ -67,8 +83,9 @@ def _run_parsers(project_path: Path) -> list[str]:
                 # parse_pyproject já retorna a string completa (ex: "requests>=2.28.0")
                 deps[k] = v
         except Exception:  # noqa: BLE001
-            logger.warning("Falha ao parsear pyproject.toml em '%s'.", project_path, exc_info=True)
+            logger.warning("Falha ao parsear pyproject.toml em '%s'.", pyproject, exc_info=True)
 
+    req = _find_manifest(project_path, "requirements.txt")
     if req:
         try:
             r_deps = parse_requirements(req)
@@ -76,7 +93,14 @@ def _run_parsers(project_path: Path) -> list[str]:
                 # parse_requirements retorna só o especificador (ex: ">=2.28.0")
                 deps.setdefault(k, f"{k}{v}")
         except Exception:  # noqa: BLE001
-            logger.warning("Falha ao parsear requirements.txt em '%s'.", project_path, exc_info=True)
+            logger.warning("Falha ao parsear requirements.txt em '%s'.", req, exc_info=True)
+
+    if not deps:
+        logger.warning(
+            "_run_parsers: nenhum manifesto encontrado em '%s'. "
+            "Verifique se o ZIP contém pyproject.toml ou requirements.txt.",
+            project_path,
+        )
 
     logger.info("_run_parsers: %d dependência(s) declarada(s) encontrada(s).", len(deps))
     return list(deps.values())

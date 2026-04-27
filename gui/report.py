@@ -1,39 +1,42 @@
 """
-gui/report.py  –  DepCheck | Sprint 4
-Módulo unificado de renderização: tabelas, KPIs, gráficos e exportações.
-"""
+gui/report.py  –  projeto-sprint-4 | MERGE FINAL (semana final Sprint 4)
+Módulo unificado integrando as contribuições de todos os desenvolvedores:
 
+  Dev 1 → render_zombie_table()      + render_csv_download()   + helpers CSV enriquecidos
+  Dev 2 → render_ghost_table()       + render_json_download()  + helpers Ghost enriquecidos
+  Dev 3 → render_kpi_cards()         + render_outdated_table() + helpers KPI/outdated
+  Dev 4 → render_pie_chart()         + get_pie_chart_data()
+         + render_all_deps_table()   (Sprint 4 — tabela geral com tamanho e idade)
+         + render_kpi_cards()        (Sprint 4 — expandido para 8 cards)
+         + _format_size_bytes()      + _format_avg_age()
+"""
 from __future__ import annotations
 
 import csv
 import io
 import json
-from typing import Any
-import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
-
+from typing import Any, Dict, List
 
 from core.constants import SIZE_UNKNOWN
 
 # ══════════════════════════════════════════════════════════════════════════════
-# DEV 1 — Zombie Helpers + Render
+# DEV 1 — Zombie Helpers + Render (Sprint 4: enriquecido com tamanho e idade)
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-def _format_size(size_bytes: int | None) -> str:
+def _format_size(size_bytes: int) -> str:
     """Formata um tamanho em bytes como string legível para exibição.
 
-    Retorna "N/D" quando o valor é SIZE_UNKNOWN (-1) ou None, "X KB" para valores
+    Retorna "N/D" quando o valor é SIZE_UNKNOWN (-1), "X KB" para valores
     menores que 1 MB, e "X MB" para valores maiores ou iguais a 1 MB.
 
     Args:
-        size_bytes: Tamanho em bytes. Usar SIZE_UNKNOWN (-1) ou None quando indisponível.
+        size_bytes: Tamanho em bytes. Usar SIZE_UNKNOWN (-1) quando indisponível.
 
     Returns:
         String formatada, ex: ``"N/D"``, ``"100 KB"``, ``"2 MB"``.
     """
-    if size_bytes is None or size_bytes == SIZE_UNKNOWN:
+    if size_bytes == SIZE_UNKNOWN:
         return "N/D"
     if size_bytes < 1024 * 1024:
         return f"{size_bytes // 1024} KB"
@@ -52,8 +55,6 @@ def get_zombie_rows(result: dict[str, Any]) -> list[dict[str, str]]:
 
     Returns:
         Lista de dicionários prontos para renderização em tabela Streamlit.
-        Sem enriquecimento: ``[{"pacote": "...", "status": "Zumbi"}, ...]``
-        Com enriquecimento: adiciona ``"tamanho"`` e ``"idade_dias"`` a cada item.
     """
     deps = result.get("dependencies", {})
     zombies = deps.get("zombies", [])
@@ -61,7 +62,6 @@ def get_zombie_rows(result: dict[str, Any]) -> list[dict[str, str]]:
 
     rows: list[dict[str, str]] = []
     for z in zombies:
-        # Normaliza o nome para buscar no enriched_declared (chave em minúsculas)
         from src.analyzers.zombie_analyzer import extract_package_name
         key = extract_package_name(z)
         row: dict[str, str] = {"pacote": z, "status": "Zumbi"}
@@ -90,12 +90,17 @@ def build_zombie_csv_bytes(result: dict[str, Any]) -> bytes:
     rows = get_zombie_rows(result)
     has_enriched = bool(result.get("enriched_declared"))
     fieldnames = ["pacote", "status"]
+    display_names = ["Pacote", "Status"]
     if has_enriched:
         fieldnames += ["tamanho", "idade_dias"]
+        display_names += ["Tamanho (KB)", "Idade (dias)"]
 
     output = io.StringIO()
-    writer = csv.DictWriter(output, fieldnames=fieldnames, delimiter=";")
-    writer.writeheader()
+    # Escreve cabeçalho com nomes amigáveis (capitalizados) e dados com chaves internas
+    output.write(";".join(display_names) + "\r\n")
+    writer = csv.DictWriter(
+        output, fieldnames=fieldnames, delimiter=";", extrasaction="ignore"
+    )
     writer.writerows(rows)
     return output.getvalue().encode("utf-8-sig")
 
@@ -106,6 +111,8 @@ def render_csv_download(result: dict[str, Any]) -> None:
     Args:
         result: Dicionário de resultado completo conforme ``get_empty_result_model()``.
     """
+    import streamlit as st
+
     csv_bytes = build_zombie_csv_bytes(result)
     st.download_button(
         label="⬇️ Exportar Zumbis (.csv)",
@@ -127,6 +134,9 @@ def render_zombie_table(result: dict[str, Any]) -> None:
     Args:
         result: Dicionário de resultado completo conforme ``get_empty_result_model()``.
     """
+    import streamlit as st
+    import pandas as pd
+
     rows = get_zombie_rows(result)
     count = len(rows)
     has_enriched = bool(result.get("enriched_declared"))
@@ -151,7 +161,7 @@ def render_zombie_table(result: dict[str, Any]) -> None:
     }
 
     if has_enriched:
-        column_config["tamanho"] = st.column_config.TextColumn("📦 Tamanho", width="small")
+        column_config["tamanho"] = st.column_config.TextColumn("💾 Tamanho", width="small")
         column_config["idade_dias"] = st.column_config.TextColumn("📅 Idade (dias)", width="small")
 
     st.dataframe(
@@ -164,7 +174,7 @@ def render_zombie_table(result: dict[str, Any]) -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# DEV 2 — Ghost Helpers + Render
+# DEV 2 — Ghost Helpers + Render (Sprint 4: enriquecido com tamanho e idade)
 # ══════════════════════════════════════════════════════════════════════════════
 
 
@@ -182,9 +192,8 @@ def _format_age(age_days: int | float | None) -> str:
     return str(int(age_days))
 
 
-def get_ghost_rows(result: dict[str, Any]) -> list[dict[str, str]]:
-    """Extrai e retorna as dependências fantasmas como lista de dicionários
-    prontos para exibição em tabela Streamlit.
+def get_ghost_rows(result: Dict[str, Any]) -> List[Dict[str, str]]:
+    """Extrai e retorna as dependências fantasmas como lista de dicionários para exibição.
 
     Quando ``result["enriched_declared"]`` está presente, inclui as colunas
     adicionais "tamanho" e "idade_dias" com dados de cada pacote.
@@ -193,25 +202,25 @@ def get_ghost_rows(result: dict[str, Any]) -> list[dict[str, str]]:
         result: Dicionário de resultado da análise retornado pelo orquestrador.
 
     Returns:
-        Lista de dicionários com os campos do pacote fantasma, incluindo
-        "tamanho" e "idade_dias" quando dados enriquecidos estiverem disponíveis.
+        Lista de dicionários com os campos do pacote fantasma.
     """
     deps = result.get("dependencies", {})
     ghosts = deps.get("ghosts", [])
-    enriched: dict[str, Any] = result.get("enriched_declared", {})
+    enriched: Dict[str, Any] = result.get("enriched_declared", {})
 
-    rows: list[dict[str, str]] = []
+    rows: List[Dict[str, str]] = []
     for g in ghosts:
-        row: dict[str, str] = {"pacote": g, "status": "Fantasma"}
+        row: Dict[str, str] = {"pacote": g, "status": "Fantasma"}
         if enriched:
             pkg_data = enriched.get(g, {})
-            row["tamanho"] = _format_size(pkg_data.get("size_bytes"))
+            size_bytes = pkg_data.get("size_bytes", SIZE_UNKNOWN)
+            row["tamanho"] = _format_size(size_bytes if size_bytes is not None else SIZE_UNKNOWN)
             row["idade_dias"] = _format_age(pkg_data.get("age_days"))
         rows.append(row)
     return rows
 
 
-def build_json_bytes(result: dict[str, Any]) -> bytes:
+def build_json_bytes(result: Dict[str, Any]) -> bytes:
     """Serializa o dicionário de resultado completo para bytes JSON.
 
     Inclui o campo ``enriched_declared`` quando presente no dicionário de
@@ -226,8 +235,9 @@ def build_json_bytes(result: dict[str, Any]) -> bytes:
     return json.dumps(result, ensure_ascii=False, indent=4).encode("utf-8")
 
 
-def render_json_download(result: dict[str, Any]) -> None:
+def render_json_download(result: Dict[str, Any]) -> None:
     """Renderiza o botão de download JSON do relatório completo."""
+    import streamlit as st
 
     json_bytes = build_json_bytes(result)
     st.download_button(
@@ -240,15 +250,18 @@ def render_json_download(result: dict[str, Any]) -> None:
     )
 
 
-def render_ghost_table(result: dict[str, Any]) -> None:
+def render_ghost_table(result: Dict[str, Any]) -> None:
     """Renderiza a seção de Tabela de Dependências Fantasmas.
 
-    Exibe colunas adicionais "Tamanho" e "Idade (dias)" quando
-    ``result["enriched_declared"]`` estiver disponível no resultado.
+    Exibe colunas básicas sempre. Quando ``result["enriched_declared"]`` estiver
+    preenchido, exibe também Tamanho e Idade (dias).
 
     Args:
         result: Dicionário de resultado da análise retornado pelo orquestrador.
     """
+    import streamlit as st
+    import pandas as pd
+
     rows = get_ghost_rows(result)
     count = len(rows)
     has_enriched = bool(result.get("enriched_declared"))
@@ -268,31 +281,20 @@ def render_ghost_table(result: dict[str, Any]) -> None:
 
     df = pd.DataFrame(rows)
 
+    column_config: dict[str, Any] = {
+        "pacote": st.column_config.TextColumn("📦 Pacote", width="large"),
+        "status": st.column_config.TextColumn("🔖 Status", width="small"),
+    }
     if has_enriched:
-        df.columns = ["Pacote", "Status", "Tamanho", "Idade (dias)"]
-        st.dataframe(
-            df,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Pacote": st.column_config.TextColumn("📦 Pacote", width="large"),
-                "Status": st.column_config.TextColumn("🔖 Status", width="small"),
-                "Tamanho": st.column_config.TextColumn("💾 Tamanho", width="small"),
-                "Idade (dias)": st.column_config.TextColumn("📅 Idade (dias)", width="small"),
-            },
-        )
-    else:
-        df.columns = ["Pacote", "Status"]
-        st.dataframe(
-            df,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Pacote": st.column_config.TextColumn("📦 Pacote", width="large"),
-                "Status": st.column_config.TextColumn("🔖 Status", width="small"),
-            },
-        )
+        column_config["tamanho"] = st.column_config.TextColumn("💾 Tamanho", width="small")
+        column_config["idade_dias"] = st.column_config.TextColumn("📅 Idade (dias)", width="small")
 
+    st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        column_config=column_config,
+    )
     render_json_download(result)
 
 
@@ -301,21 +303,31 @@ def render_ghost_table(result: dict[str, Any]) -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-def get_kpi_values(result: dict[str, Any]) -> dict[str, int]:
-    """Extrai e consolida métricas de KPI do resultado da análise.
-
-    Args:
-        result: Modelo de resultado contendo estatísticas de dependências.
-
-    Returns:
-        Dicionário com valores de KPI como total declarado, importado, zumbis, fantasmas, desatualizados e saudáveis.
+def get_kpi_values(result: Dict[str, Any]) -> Dict[str, int]:
+    """
+    Extrai métricas consolidadas do modelo de resultado.
+    Inclui cálculo automático de 'total_healthy'.
     """
     stats = result.get("statistics", {})
     total_declared = stats.get("total_declared", 0)
     total_zombies = stats.get("total_zombies", 0)
     total_ghosts = stats.get("total_ghosts", 0)
     total_outdated = stats.get("total_outdated", 0)
-    total_healthy = max(0, total_declared - total_zombies - total_ghosts - total_outdated)
+    # Saudáveis = declaradas que não são zumbis nem desatualizadas.
+    # Fantasmas não são subtraídas pois não são declaradas.
+    import re as _re  # noqa: PLC0415
+
+    def _pkg(dep: str) -> str:
+        return _re.split(r"[=><~!\[\s]", dep)[0].strip().lower()
+
+    deps = result.get("dependencies", {})
+    zombie_names = {_pkg(z) for z in deps.get("zombies", [])}
+    outdated_names = set(deps.get("outdated", {}).keys())
+    declared_list = deps.get("declared", [])
+    total_healthy = sum(
+        1 for d in declared_list
+        if _pkg(d) not in zombie_names and _pkg(d) not in outdated_names
+    )
     return {
         "total_declared": total_declared,
         "total_imported": stats.get("total_imported", 0),
@@ -326,20 +338,13 @@ def get_kpi_values(result: dict[str, Any]) -> dict[str, int]:
     }
 
 
-def get_outdated_rows(result: dict[str, Any]) -> list[dict[str, Any]]:
-    """Formata as dependências desatualizadas para exibição em tabela.
-
-    Args:
-        result: Modelo de resultado contendo dependências desatualizadas.
-
-    Returns:
-        Lista de dicionários com nome do pacote, versão mais recente e dias de defasagem,
-        ordenada da maior para a menor defasagem.
-    """
+def get_outdated_rows(result: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Retorna pacotes desatualizados ordenados por criticidade (dias desc)."""
     outdated = result.get("dependencies", {}).get("outdated", {})
     rows = [
         {
             "pacote": name,
+            "versao_declarada": info.get("declared_version") or "—",
             "versao_mais_recente": info.get("latest_version", "—"),
             "dias_defasagem": info.get("days_outdated", 0),
         }
@@ -348,15 +353,53 @@ def get_outdated_rows(result: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda r: r["dias_defasagem"], reverse=True)
 
 
+def render_outdated_table(result: Dict[str, Any]) -> None:
+    """Renderiza a Tabela de Dependências Desatualizadas com colorização por criticidade."""
+    import streamlit as st
+    import pandas as pd
+
+    rows = get_outdated_rows(result)
+    count = len(rows)
+
+    st.markdown("### ⏰ Dependências Desatualizadas")
+    st.caption(
+        "Pacotes com versões anteriores à release mais recente no **PyPI**. "
+        "Ordenados por criticidade (mais antigos primeiro)."
+    )
+
+    if count == 0:
+        st.success("✅ Todas as dependências estão na versão mais recente!")
+        return
+
+    st.info(f"ℹ️ **{count}** dependência(s) desatualizada(s) encontrada(s).")
+
+    df = pd.DataFrame(rows)
+    df.columns = ["Pacote", "Versão Declarada", "Versão Mais Recente", "Dias Defasagem"]
+
+    def highlight_critical(val: int) -> str:
+        if val > 365:
+            return "background-color: #fee2e2; color: #991b1b"
+        if val > 180:
+            return "background-color: #fef3c7; color: #92400e"
+        return ""
+
+    styled = df.style.map(highlight_critical, subset=["Dias Defasagem"])
+    st.dataframe(styled, use_container_width=True, hide_index=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DEV 4 — KPI Expandido (8 cards) + Pie Chart + All Deps Table (Sprint 4)
+# ══════════════════════════════════════════════════════════════════════════════
+
+
 def _format_size_bytes(total_bytes: int) -> str:
-    """
-    Formata um valor em bytes para exibição legível (KB ou MB).
+    """Formata um valor em bytes para exibição legível (KB ou MB).
 
     Args:
         total_bytes: Valor total em bytes.
 
     Returns:
-        String formatada (ex: "12.4 MB", "320.0 KB").
+        String formatada (ex: "12.4 MB", "320.0 KB") ou "N/D".
     """
     if total_bytes <= 0:
         return "N/D"
@@ -366,8 +409,7 @@ def _format_size_bytes(total_bytes: int) -> str:
 
 
 def _format_avg_age(avg_age_days: float | None) -> str:
-    """
-    Formata a idade média em dias para exibição legível.
+    """Formata a idade média em dias para exibição legível.
 
     Args:
         avg_age_days: Idade média em dias, ou None se indisponível.
@@ -380,12 +422,13 @@ def _format_avg_age(avg_age_days: float | None) -> str:
     return f"{int(avg_age_days)} dias"
 
 
-def render_kpi_cards(result: dict[str, Any]) -> None:
+def render_kpi_cards(result: Dict[str, Any]) -> None:
     """Renderiza os 8 cartões de KPI no topo do painel (2 linhas × 4 colunas).
 
     Linha 1: Declaradas | Importadas (AST) | Saudáveis | Tamanho Total
     Linha 2: Zumbis | Fantasmas | Desatualizadas | Idade Média
     """
+    import streamlit as st
 
     kpis = get_kpi_values(result)
     stats = result.get("statistics", {})
@@ -409,7 +452,7 @@ def render_kpi_cards(result: dict[str, Any]) -> None:
             delta_color="normal",
         )
     with col4:
-        st.metric("📦 Tamanho Total", _format_size_bytes(total_size_bytes))
+        st.metric("💾 Tamanho Total", _format_size_bytes(total_size_bytes))
     with col5:
         st.metric(
             "🧟 Zumbis",
@@ -436,53 +479,12 @@ def render_kpi_cards(result: dict[str, Any]) -> None:
     st.divider()
 
 
-def render_outdated_table(result: dict[str, Any]) -> None:
-    """Renderiza a Tabela de Dependências Desatualizadas com colorização por criticidade."""
-
-    rows = get_outdated_rows(result)
-    count = len(rows)
-
-    st.markdown("### ⏰ Dependências Desatualizadas")
-    st.caption(
-        "Pacotes com versões anteriores à release mais recente no **PyPI**. "
-        "Ordenados por criticidade (mais antigos primeiro)."
-    )
-
-    if count == 0:
-        st.success("✅ Todas as dependências estão na versão mais recente!")
-        return
-
-    st.info(f"ℹ️ **{count}** dependência(s) desatualizada(s) encontrada(s).")
-
-    df = pd.DataFrame(rows)
-    df.columns = ["Pacote", "Versão Mais Recente", "Dias Defasagem"]
-
-    def highlight_critical(val: int) -> str:
-        if val > 365:
-            return "background-color: #fee2e2; color: #991b1b"
-        if val > 180:
-            return "background-color: #fef3c7; color: #92400e"
-        return ""
-
-    styler = df.style
-    map_fn = getattr(styler, "map", None)
-    if callable(map_fn):
-        styled = map_fn(highlight_critical, subset=["Dias Defasagem"])
-    else:
-        applymap_fn = getattr(styler, "applymap")
-        styled = applymap_fn(highlight_critical, subset=["Dias Defasagem"])
-    st.dataframe(styled, use_container_width=True, hide_index=True)
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# DEV 4 — Pie Chart (Plotly) + Render + All Deps Table (Sprint 4)
-# ══════════════════════════════════════════════════════════════════════════════
-
 _PIE_COLORS = ["#22c55e", "#ef4444", "#a855f7", "#f59e0b"]
 
 
-def get_pie_chart_data(result: dict[str, Any]) -> dict[str, Any]:
-    """Computa proporções para o gráfico de pizza:
+def get_pie_chart_data(result: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Computa proporções para o gráfico de pizza:
     Saudáveis | Zumbis | Fantasmas | Desatualizadas
     """
     stats = result.get("statistics", {})
@@ -498,8 +500,10 @@ def get_pie_chart_data(result: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def render_pie_chart(result: dict[str, Any]) -> None:
+def render_pie_chart(result: Dict[str, Any]) -> None:
     """Renderiza gráfico de pizza interativo (Plotly donut) com responsividade total."""
+    import streamlit as st
+    import plotly.graph_objects as go
 
     data = get_pie_chart_data(result)
     labels = data["labels"]
@@ -549,7 +553,7 @@ def render_pie_chart(result: dict[str, Any]) -> None:
     st.plotly_chart(fig, use_container_width=True)
 
 
-# ── All Dependencies Table (Dev 4 | Sprint 4) ─────────────────────────────────
+# ── All Dependencies Table ────────────────────────────────────────────────────
 
 _STATUS_ORDER = {"Zumbi": 0, "Fantasma": 1, "Desatualizado": 2, "Saudável": 3}
 
@@ -560,8 +564,7 @@ def _get_dep_status(
     ghosts: list[str],
     outdated: dict[str, Any],
 ) -> str:
-    """
-    Determina o status de uma dependência com base nas listas de análise.
+    """Determina o status de uma dependência com base nas listas de análise.
 
     Args:
         name: Nome normalizado do pacote.
@@ -582,8 +585,7 @@ def _get_dep_status(
 
 
 def _extract_pkg_name(raw_dep: str) -> str:
-    """
-    Extrai o nome do pacote de uma string de dependência bruta.
+    """Extrai o nome do pacote de uma string de dependência bruta.
 
     Args:
         raw_dep: Dependência bruta (ex: "requests>=2.28.0").
@@ -596,18 +598,18 @@ def _extract_pkg_name(raw_dep: str) -> str:
     return match.group(1).lower() if match else raw_dep.strip().lower()
 
 
-def get_all_deps_rows(result: dict[str, Any]) -> list[dict[str, Any]]:
-    """
-    Constrói as linhas da tabela de todas as dependências declaradas,
-    combinando status, tamanho e idade dos metadados enriquecidos.
+def get_all_deps_rows(result: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Constrói as linhas da tabela de todas as dependências declaradas.
+
+    Combina status, tamanho e idade dos metadados enriquecidos em uma visão
+    consolidada. Ordenada: problemáticas primeiro (Zumbi→Fantasma→Desatualizado→Saudável),
+    depois alfabeticamente por nome.
 
     Args:
         result: Dicionário de resultado padronizado da análise.
 
     Returns:
         Lista de dicionários com campos: pacote, status, tamanho, idade.
-        Ordenada: problemáticas primeiro (Zumbi→Fantasma→Desatualizado→Saudável),
-        depois alfabeticamente por nome.
     """
     deps = result.get("dependencies", {})
     declared: list[str] = deps.get("declared", [])
@@ -623,10 +625,7 @@ def get_all_deps_rows(result: dict[str, Any]) -> list[dict[str, Any]]:
         meta = enriched.get(pkg_name, {})
 
         size_bytes = meta.get("size_bytes", -1)
-        if isinstance(size_bytes, int) and size_bytes != -1:
-            tamanho = _format_size_bytes(size_bytes)
-        else:
-            tamanho = "N/D"
+        tamanho = _format_size_bytes(size_bytes) if isinstance(size_bytes, int) and size_bytes != -1 else "N/D"
 
         age_days = meta.get("age_days")
         idade = f"{age_days} dias" if age_days is not None else "N/D"
@@ -648,14 +647,11 @@ def get_all_deps_rows(result: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
-def render_all_deps_table(result: dict[str, Any]) -> None:
-    """
-    Renderiza tabela de TODAS as dependências declaradas com:
-    - Pacote (nome)
-    - Status (Saudável / Zumbi / Fantasma / Desatualizado)
-    - Tamanho (KB ou MB, 'N/D' se -1)
-    - Idade (dias, 'N/D' se None)
-    Ordenada por status (problemáticas primeiro) depois por nome.
+def render_all_deps_table(result: Dict[str, Any]) -> None:
+    """Renderiza tabela de TODAS as dependências declaradas.
+
+    Exibe: Pacote, Status (com emoji), Tamanho e Idade.
+    Ordenada por criticidade (problemáticas primeiro) depois por nome.
 
     Args:
         result: Dicionário de resultado padronizado da análise.
@@ -680,13 +676,8 @@ def render_all_deps_table(result: dict[str, Any]) -> None:
     df = pd.DataFrame(rows)
     df.columns = ["Pacote", "Status", "Tamanho", "Idade"]
 
-    status_colors = {
-        "Zumbi": "🧟",
-        "Fantasma": "👻",
-        "Desatualizado": "⏰",
-        "Saudável": "✅",
-    }
-    df["Status"] = df["Status"].apply(lambda s: f"{status_colors.get(s, '')} {s}")
+    status_icons = {"Zumbi": "🧟", "Fantasma": "👻", "Desatualizado": "⏰", "Saudável": "✅"}
+    df["Status"] = df["Status"].apply(lambda s: f"{status_icons.get(s, '')} {s}")
 
     st.dataframe(
         df,

@@ -93,7 +93,7 @@ class TestFilterRetrocompatibility:
     """Testa que o comportamento sem extra_excluded_dirs é idêntico ao original."""
 
     def test_without_parameter_keeps_py_files(self, tmp_path: Path) -> None:
-        """Chamada sem extra_excluded_dirs deve manter .py e remover outros arquivos."""
+        """Chamada sem extra_excluded_dirs deve retornar só .py sem deletar manifests."""
         _make_py(tmp_path, "main.py")
         (tmp_path / "readme.txt").write_text("doc", encoding="utf-8")
 
@@ -101,7 +101,8 @@ class TestFilterRetrocompatibility:
 
         assert len(kept) == 1
         assert kept[0].name == "main.py"
-        assert not (tmp_path / "readme.txt").exists()
+        # Arquivos não-.py são preservados no disco (pyproject.toml, requirements.txt, etc.)
+        assert (tmp_path / "readme.txt").exists()
 
     def test_without_parameter_removes_ignored_dirs(self, tmp_path: Path) -> None:
         """Chamada sem extra_excluded_dirs deve continuar removendo IGNORED_DIRS."""

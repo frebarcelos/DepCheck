@@ -72,8 +72,8 @@ def test_build_csv_bytes_contains_header():
 
     raw = build_zombie_csv_bytes(MOCK_RESULT)
     text = raw.decode("utf-8")
-    assert "pacote" in text
-    assert "status" in text
+    assert "Pacote" in text
+    assert "Status" in text
 
 
 def test_build_csv_bytes_contains_zombie_entry():

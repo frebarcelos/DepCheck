@@ -52,13 +52,13 @@ def test_get_kpi_values_defaults_to_zero_on_missing():
 
 
 def test_get_kpi_values_calculates_healthy():
-    """Total de saudáveis = declaradas - (zumbis + fantasmas + desatualizadas)."""
+    """Total de saudáveis = declaradas que não são zumbis nem desatualizadas."""
     from gui.report import get_kpi_values
 
     kpis = get_kpi_values(MOCK_RESULT)
-    # Healthy = declared - zombies - ghosts - outdated (aproximação útil para KPI)
-    expected_healthy = max(0, 3 - 0 - 0 - 2)
-    assert kpis.get("total_healthy", expected_healthy) == expected_healthy
+    # MOCK_RESULT: declared=[requests, flask, pillow], outdated={requests, flask}
+    # Saudável = pillow (1 pacote)
+    assert kpis["total_healthy"] == 1
 
 
 # ── Testes de tabela de desatualizadas ─────────────────────────────────────────

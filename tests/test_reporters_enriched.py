@@ -15,6 +15,12 @@ from gui.charts import get_size_chart_data
 from src.reporters.csv_reporter import export_to_csv
 from src.reporters.json_reporter import export_to_json
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FIXTURES
+# ══════════════════════════════════════════════════════════════════════════════
+
+
 def _build_model_with_enriched() -> dict:
     """Retorna result_model completo com enriched_declared preenchido."""
     model = get_empty_result_model()
@@ -43,7 +49,11 @@ def _build_model_without_enriched() -> dict:
     model["dependencies"]["outdated"] = {}
     return model
 
+
+# ══════════════════════════════════════════════════════════════════════════════
 # TESTES: export_to_csv() com enriched_declared
+# ══════════════════════════════════════════════════════════════════════════════
+
 
 def test_csv_with_enriched_has_correct_header(tmp_path):
     """Cabeçalho do CSV deve conter os 5 campos esperados."""
@@ -127,7 +137,10 @@ def test_csv_with_enriched_outdated_days_filled(tmp_path):
     assert rows["requests"]["Outdated (Dias)"] == "45"
 
 
+# ══════════════════════════════════════════════════════════════════════════════
 # TESTES: export_to_csv() sem enriched_declared (retrocompatibilidade)
+# ══════════════════════════════════════════════════════════════════════════════
+
 
 def test_csv_without_enriched_does_not_raise(tmp_path):
     """export_to_csv() deve funcionar sem erros quando enriched_declared está ausente."""
@@ -166,7 +179,11 @@ def test_csv_without_enriched_has_five_columns(tmp_path):
 
     assert len(header) == 5
 
+
+# ══════════════════════════════════════════════════════════════════════════════
 # TESTES: export_to_json() com metadados e enriched_declared
+# ══════════════════════════════════════════════════════════════════════════════
+
 
 def test_json_includes_enriched_declared(tmp_path):
     """Arquivo JSON exportado deve conter a chave enriched_declared."""
@@ -233,8 +250,14 @@ def test_json_without_enriched_still_has_metadata(tmp_path):
 
     assert "exported_at" in data
     assert "version" in data
+    # enriched_declared é sempre incluído no JSON (pode estar vazio)
+    assert "enriched_declared" in data
+    assert data["enriched_declared"] == {}
 
+
+# ══════════════════════════════════════════════════════════════════════════════
 # TESTES: get_size_chart_data()
+# ══════════════════════════════════════════════════════════════════════════════
 
 
 def _build_result_with_sizes() -> dict:

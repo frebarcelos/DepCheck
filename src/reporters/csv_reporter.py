@@ -1,3 +1,11 @@
+"""
+src/reporters/csv_reporter.py  –  Dev 5 | Sprint 4
+Exportação de dependências para CSV com campos enriquecidos.
+
+Dev 5 é responsável por:
+  - export_to_csv()  → gera CSV com colunas: Pacote, Status, Tamanho (KB),
+                        Idade (dias), Outdated (Dias)
+"""
 from __future__ import annotations
 
 import csv
@@ -32,7 +40,7 @@ def export_to_csv(result_model: dict[str, Any], output_path: str) -> None:
         writer.writerow(["Pacote", "Status", "Tamanho (KB)", "Idade (dias)", "Outdated (Dias)"])
 
         for dep in sorted(all_deps):
-            
+            # ── Status ─────────────────────────────────────────────────────────
             status_parts: list[str] = []
             if dep in zombies:
                 status_parts.append("Zumbi")
@@ -45,6 +53,7 @@ def export_to_csv(result_model: dict[str, Any], output_path: str) -> None:
 
             status_str = ", ".join(status_parts)
 
+            # ── Tamanho (KB) ────────────────────────────────────────────────────
             pkg_info = enriched.get(dep, {})
             size_bytes: int = pkg_info.get("size_bytes", -1) if pkg_info else -1
             if size_bytes is None or size_bytes < 0:
@@ -52,12 +61,14 @@ def export_to_csv(result_model: dict[str, Any], output_path: str) -> None:
             else:
                 size_kb = round(size_bytes / 1024, 2)
 
+            # ── Idade (dias) ────────────────────────────────────────────────────
             age_days: Any = pkg_info.get("age_days") if pkg_info else None
             if age_days is None:
                 age_str: str | int = "N/D"
             else:
                 age_str = int(age_days)
 
+            # ── Outdated (Dias) ─────────────────────────────────────────────────
             days_outdated: str | int = ""
             if dep in outdated:
                 days_outdated = outdated[dep].get("days_outdated", "")
