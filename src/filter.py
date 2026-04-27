@@ -47,21 +47,26 @@ def filter_extracted(
     kept: list[Path] = []
 
     # Primeiro passo: remove diretórios ignorados (top-down)
-    for item in sorted(root_dir.rglob("*"), key=lambda p: len(p.parts)):
-        if item.exists() and item.is_dir() and item.name in effective_ignored:
+    for item in list(root_dir.rglob("*")):
+        if item.is_dir() and item.name in effective_ignored:
             logger.debug("Removendo diretório ignorado: %s", item)
             shutil.rmtree(item)
 
-    # Segundo passo: coleta arquivos .py relevantes
-    # NÃO deleta outros tipos de arquivo — manifests como pyproject.toml e
-    # requirements.txt precisam sobreviver para o parser do orquestrador.
-    for item in root_dir.rglob("*"):
+    # Segundo passo: filtra arquivos
+    for item in list(root_dir.rglob("*")):
         if not item.is_file():
             continue
+
         if item.name in IGNORED_FILES:
+            logger.debug("Removendo arquivo ignorado: %s", item.name)
+            item.unlink()
             continue
+
         if item.suffix.lower() not in SUPPORTED_EXTENSIONS:
+            logger.debug("Removendo arquivo sem suporte: %s", item.name)
+            item.unlink()
             continue
+
         kept.append(item)
 
     logger.info(

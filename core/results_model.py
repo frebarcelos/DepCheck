@@ -21,7 +21,7 @@ def get_empty_result_model() -> dict[str, Any]:
             "imported": [],      # Módulos importados rastreados pelo AST
             "zombies": [],       # Declarado > Não Importado
             "ghosts": [],        # Importado > Não Declarado
-            "outdated": {},      # Map de pacote -> {latest_version: str, days_outdated: int, size_bytes: int}
+            "outdated": {},      # Map de pacote -> {latest_version: str, days_outdated: int}
         },
         "statistics": {
             "total_declared": 0,
@@ -29,8 +29,6 @@ def get_empty_result_model() -> dict[str, Any]:
             "total_zombies": 0,
             "total_ghosts": 0,
             "total_outdated": 0,
-            "total_size_bytes": 0,
-            "avg_age_days": None,
         },
         # Metadados enriquecidos de cada dependência declarada, buscados no PyPI.
         # Formato: {"requests": {"size_bytes": 102400, "age_days": 180}, ...}

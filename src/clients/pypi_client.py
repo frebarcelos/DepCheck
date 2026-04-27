@@ -1,91 +1,35 @@
-"""
-src/clients/pypi_client.py  –  Dev 3 | Sprint 2 | Auditoria Dev 4 Sprint 4 | Expansão Dev 3 Sprint 4
-Cliente HTTP minimalista para o índice PyPI.
-Usa apenas bibliotecas da Standard Library (urllib, json, functools)
-e lru_cache para evitar chamadas de rede duplicadas.
-
-Paradigma: Procedimental — apenas funções, sem classes de domínio.
-"""
 from __future__ import annotations
 
 import json
-import logging
-import urllib.error
 import urllib.request
 from functools import lru_cache
-from typing import Any
-
-logger = logging.getLogger(__name__)
-
-# Endpoint base da API JSON do PyPI
-_PYPI_BASE_URL: str = "https://pypi.org/pypi"
-# Timeout padrão em segundos para chamadas ao PyPI
-_REQUEST_TIMEOUT: int = 10
-# Cabeçalho User-Agent para identificar o cliente ao PyPI
-_USER_AGENT: str = "DepCheck/0.4 (github.com/DepCheck)"
 
 
 @lru_cache(maxsize=128)
-def get_pypi_package_info(package_name: str) -> dict[str, Any] | None:
-    """
-    Consulta a API JSON do PyPI e retorna os metadados do pacote solicitado.
+def get_pypi_package_info(package_name: str) -> dict | None:
+    """Busca as informações do pacote no servidor PyPI usando urllib.
 
-    Utiliza ``functools.lru_cache`` para armazenar em memória os resultados
-    de consultas anteriores, evitando chamadas de rede duplicadas na mesma
-    sessão de execução.
+    Utiliza lru_cache para evitar chamadas de rede duplicadas para o mesmo
+    pacote.
 
     Args:
-        package_name: Nome do pacote a ser consultado (ex: "requests", "numpy").
-                      Deve estar em lowercase para compatibilidade com o índice.
+        package_name: Nome do pacote a consultar no PyPI.
 
     Returns:
-        Dicionário com os campos da API PyPI (``info``, ``releases``, ``urls``),
-        ou ``None`` se o pacote não for encontrado ou houver falha na conexão.
+        Dicionário com os dados retornados pela API PyPI ou None em caso de
+        falha.
     """
-    url = f"{_PYPI_BASE_URL}/{package_name}/json"
+    url = f"https://pypi.org/pypi/{package_name}/json"
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
-        with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as response:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=5) as response:
             if response.status == 200:
-                raw: bytes = response.read()
-                data: dict[str, Any] = json.loads(raw.decode("utf-8"))
-                logger.debug("PyPI: dados recebidos para '%s'.", package_name)
+                data = json.loads(response.read().decode("utf-8"))
                 return data
-    except urllib.error.HTTPError as exc:
-        logger.debug("PyPI HTTP %d para '%s': %s", exc.code, package_name, exc.reason)
-    except urllib.error.URLError as exc:
-        logger.warning("PyPI URLError para '%s': %s", package_name, exc.reason)
-    except Exception:  # noqa: BLE001
-        logger.warning("Erro inesperado ao consultar PyPI para '%s'.", package_name, exc_info=True)
-
+    except Exception as e:
+        print(f"Erro ao buscar {package_name} no PyPI: {e}")
+        return None
     return None
-
-
-def fetch_latest_version(package_name: str) -> dict[str, Any]:
-    """
-    Retorna os metadados resumidos de versão para uso nos analisadores.
-
-    Wrapper procedural sobre ``get_pypi_package_info`` que extrai apenas
-    os campos relevantes para o outdated_analyzer. Retorna dicionário vazio
-    se os dados não estiverem disponíveis.
-
-    Args:
-        package_name: Nome do pacote a ser consultado.
-
-    Returns:
-        Dicionário com as chaves ``latest_version`` e ``upload_time``,
-        ou dicionário vazio se os dados forem inacessíveis.
-    """
-    info = get_pypi_package_info(package_name)
-    if not info or "info" not in info:
-        return {}
-
-    latest_version: str = info["info"].get("version", "")
-    releases: dict[str, list[dict[str, Any]]] = info.get("releases", {})
-    files = releases.get(latest_version, [])
-    upload_time: str = files[0].get("upload_time", "") if files else ""
-
-    return {"latest_version": latest_version, "upload_time": upload_time}
 
 
 @lru_cache(maxsize=128)
@@ -97,7 +41,7 @@ def fetch_package_size(package_name: str, version: str | None = None) -> int:
     retorna o tamanho do primeiro wheel encontrado ou do primeiro arquivo.
 
     Args:
-        package_name: Nome do pacote no PyPI (lowercase).
+        package_name: Nome do pacote no PyPI.
         version: Versão específica a consultar. Se None, usa a latest.
 
     Returns:
@@ -124,13 +68,11 @@ def fetch_package_size(package_name: str, version: str | None = None) -> int:
         if filename.endswith(".whl"):
             size = file_info.get("size")
             if size is not None:
-                logger.debug("PyPI size (whl) para '%s' v%s: %d bytes", package_name, target_version, int(size))
                 return int(size)
 
     # Fallback to first file
     size = files[0].get("size")
     if size is not None:
-        logger.debug("PyPI size (sdist) para '%s' v%s: %d bytes", package_name, target_version, int(size))
         return int(size)
 
     return -1
@@ -145,7 +87,7 @@ def fetch_release_date(package_name: str, version: str | None = None) -> str | N
     Usa o campo "upload_time" de releases[version][0].
 
     Args:
-        package_name: Nome do pacote no PyPI (lowercase).
+        package_name: Nome do pacote no PyPI.
         version: Versão específica a consultar. Se None, usa a latest.
 
     Returns:
@@ -170,5 +112,4 @@ def fetch_release_date(package_name: str, version: str | None = None) -> str | N
     if not upload_time:
         return None
 
-    logger.debug("PyPI release_date para '%s' v%s: %s", package_name, target_version, upload_time)
     return str(upload_time)

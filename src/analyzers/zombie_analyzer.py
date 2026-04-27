@@ -10,7 +10,8 @@ def extract_package_name(dep: str) -> str:
 
     Remove especificadores de versão (>=, ==, ~=, !=, <=, <, >) e extras
     opcionais entre colchetes (ex: ``[security]``), retornando o nome do
-    pacote em minúsculas.
+    pacote em minúsculas e com hífens convertidos para underscores conforme
+    a convenção de normalização do PyPI.
 
     Args:
         dep: String de dependência no formato PEP 508, por exemplo
@@ -19,12 +20,12 @@ def extract_package_name(dep: str) -> str:
 
     Returns:
         Nome do pacote em minúsculas sem especificadores de versão nem extras.
+        Exemplos::
 
-    Examples:
-        extract_package_name("Django>=3.2")          # "django"
-        extract_package_name("requests[security]")   # "requests"
-        extract_package_name("my-package~=1.0")      # "my-package"
-        extract_package_name("pillow")               # "pillow"
+            extract_package_name("Django>=3.2")          # "django"
+            extract_package_name("requests[security]")   # "requests"
+            extract_package_name("my-package~=1.0")      # "my-package"
+            extract_package_name("pillow")               # "pillow"
     """
     # Remove extras entre colchetes, ex: requests[security] -> requests
     dep = re.sub(r"\[.*?\]", "", dep)
@@ -53,17 +54,20 @@ def find_zombie_dependencies(declared_deps: list[str], imported_modules: set[str
     """
     zombies = []
 
-    # Resolve cada import para o nome normalizado do pacote PyPI correspondente.
-    # Ex: "PIL" → "pillow", "yaml" → "pyyaml", "sklearn" → "scikit_learn"
-    resolved_imports: set[str] = {
-        IMPORT_TO_PACKAGE.get(m.lower(), m.lower()) for m in imported_modules
+    # Resolve cada import para seu nome de pacote canônico.
+    # IMPORT_TO_PACKAGE mapeia import→pacote (ex: "pil"→"pillow", "yaml"→"pyyaml"),
+    # portanto normalizamos os imports, não os pacotes declarados.
+    resolved_imports = {
+        IMPORT_TO_PACKAGE.get(m.lower(), m.lower())
+        for m in imported_modules
     }
 
     for dep in declared_deps:
         clean_dep = extract_package_name(dep)
+        # Normaliza hífens/underscores para bater com os valores do IMPORT_TO_PACKAGE
+        normalized_dep = re.sub(r"[-_.]+", "_", clean_dep)
 
-        # Se o nome do pacote não aparece em nenhum import resolvido, é zumbi
-        if clean_dep not in resolved_imports:
+        if normalized_dep not in resolved_imports:
             zombies.append(dep)
 
     return zombies

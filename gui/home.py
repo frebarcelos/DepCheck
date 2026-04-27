@@ -1,10 +1,6 @@
 """
-gui/home.py  –  Sprint 4 | MERGE FINAL (semana final Sprint 4)
-Contribuições integradas:
-  Dev 2 → render_exclusion_config() + exclusões configuráveis na GUI
-          + schedule_cleanup() + limpeza automática de temp
-  Dev 4 → render_all_deps_table() chamada em _render_report()
-  Dev 5 → render_size_bar_chart() + layout 3 colunas de gráficos + v0.4.1
+gui/home.py  –  DepCheck | Sprint 4
+Interface principal: upload de .zip, extração, análise e exibição de resultados.
 """
 
 from __future__ import annotations
@@ -47,11 +43,6 @@ DEFAULT_EXCLUDED_DIRS: list[str] = [
 logger = logging.getLogger(__name__)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Helpers de análise e limpeza
-# ══════════════════════════════════════════════════════════════════════════════
-
-
 def run_full_analysis(project_path: str) -> dict:
     """
     Executa a análise completa de dependências em um caminho de projeto.
@@ -75,11 +66,6 @@ def schedule_cleanup(session_id: str) -> None:
         logger.info("Limpeza de sessão concluída: %s", session_id)
     except Exception:  # noqa: BLE001
         logger.warning("Falha ao limpar sessão: %s", session_id, exc_info=True)
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Configuração de página e cabeçalho
-# ══════════════════════════════════════════════════════════════════════════════
 
 
 def setup_page() -> None:
@@ -107,14 +93,65 @@ def setup_page() -> None:
             transition: opacity 0.2s;
         }
         .stButton>button:hover { opacity: 0.85; }
-        .upload-box {
-            border: 2px dashed #6366f1;
-            border-radius: 12px;
-            padding: 2rem;
-            text-align: center;
-            background: rgba(99,102,241,0.05);
-            margin-bottom: 1.5rem;
+        /* Força a borda e fundo customizado na section principal do Dropzone */
+        section[aria-label="Selecione o arquivo ZIP"] {
+            border: 2px dashed #6366f1 !important;
+            border-radius: 12px !important;
+            padding: 3rem 2rem !important;
+            background-color: rgba(99,102,241,0.05) !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            justify-content: center !important;
+            position: relative !important;
         }
+        /* Remove o fundo cinza de qualquer elemento interno gerado pelo Streamlit */
+        section[aria-label="Selecione o arquivo ZIP"] * {
+            background-color: transparent !important;
+        }
+        
+        /* Esconde o ícone de nuvem original */
+        section[aria-label="Selecione o arquivo ZIP"] svg {
+            display: none !important;
+        }
+        /* Esconde os spans originais de instrução ("Drag and drop...", "Limit 50MB...") */
+        section[aria-label="Selecione o arquivo ZIP"] > div > div > span {
+            display: none !important;
+        }
+
+        /* Injeta nosso texto customizado no lugar */
+        section[aria-label="Selecione o arquivo ZIP"] > div:first-of-type {
+            width: 100% !important;
+            height: 100% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            justify-content: center !important;
+            gap: 2px !important;
+        }
+        section[aria-label="Selecione o arquivo ZIP"] > div:first-of-type::before {
+            content: "📦 Arraste ou selecione o .zip do seu projeto";
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+            display: block;
+            text-align: left;
+        }
+        section[aria-label="Selecione o arquivo ZIP"] > div:first-of-type::after {
+            content: "Tamanho máximo permitido: 50 MB";
+            font-size: 14px;
+            color: #888;
+            display: block;
+            text-align: left;
+        }
+
+        /* Posiciona o botão nativo Browse files na parte inferior direita */
+        section[aria-label="Selecione o arquivo ZIP"] button {
+            position: absolute !important;
+            right: 2rem !important;
+            bottom: 1.5rem !important;
+        }
+        
         [data-testid="metric-container"] {
             background: rgba(99,102,241,0.08);
             border: 1px solid rgba(99,102,241,0.2);
@@ -136,11 +173,6 @@ def render_header() -> None:
         "fantasmas e pacotes desatualizados."
     )
     st.divider()
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Dev 2 — Configuração de exclusões via GUI
-# ══════════════════════════════════════════════════════════════════════════════
 
 
 def render_exclusion_config() -> list[str]:
@@ -176,6 +208,7 @@ def render_exclusion_config() -> list[str]:
         with col_btn:
             add_clicked = st.button("Adicionar", key="add_custom_dir_btn")
 
+        # Persiste lista de diretórios customizados na sessão entre reruns
         if "custom_excluded_dirs" not in st.session_state:
             st.session_state["custom_excluded_dirs"] = []
 
@@ -189,6 +222,7 @@ def render_exclusion_config() -> list[str]:
         if custom_list:
             st.caption(f"Customizados: {', '.join(custom_list)}")
 
+        # Retorna união dos selecionados com os customizados
         return list(set(selected) | set(custom_list))
 
 
@@ -197,40 +231,23 @@ def render_upload_section() -> tuple[Any, list[str]]:
     Renderiza a configuração de exclusões e a área de upload do ZIP.
 
     Returns:
-        Tupla (arquivo_uploaded, lista_de_dirs_excluidos).
+        Tupla (arquivo_uploaded, lista_de_dirs_excluidos). O arquivo pode ser
+        None se o usuário ainda não selecionou nenhum ZIP.
     """
     excluded_dirs = render_exclusion_config()
 
-    st.markdown(
-        f'<div class="upload-box">📦 Arraste ou selecione o <b>.zip</b> do seu projeto<br>'
-        f"<small>Tamanho máximo: <b>{MAX_ZIP_SIZE_MB} MB</b></small></div>",
-        unsafe_allow_html=True,
-    )
     uploaded_file = st.file_uploader(
         label="Selecione o arquivo ZIP",
-        type=["zip"],
         label_visibility="collapsed",
         key="zip_uploader",
     )
     return uploaded_file, excluded_dirs
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Renderização do relatório (Dev 4 + Dev 5 integrados)
-# ══════════════════════════════════════════════════════════════════════════════
-
-
 def _render_report(result: dict, extract_dir: Path) -> None:
     """
     Renderiza o relatório completo após análise bem-sucedida.
-
-    Ordem de renderização:
-    1. KPI cards (8 métricas — Dev 4)
-    2. Tabela geral de todas as deps (Dev 4)
-    3. Gráficos em 3 colunas: pizza | defasagem | tamanho (Dev 4 + Dev 5)
-    4. Tabela zumbis + CSV (Dev 1)
-    5. Tabela fantasmas + JSON (Dev 2)
-    6. Tabela desatualizadas (Dev 3)
+    Importa módulos de report.py dos outros devs via o projeto integrado.
     """
     from gui.charts import render_bar_chart_outdated, render_size_bar_chart
     from gui.report import (
@@ -242,35 +259,31 @@ def _render_report(result: dict, extract_dir: Path) -> None:
         render_zombie_table,
     )
 
-    # ── KPI Cards (Dev 4: 8 métricas) ─────────────────────────────────────────
+    # KPI Cards no topo (Dev 3 + Dev 4 Sprint 4 — 8 cards em 2 linhas de 4)
     render_kpi_cards(result)
 
-    # ── Tabela geral de todas as dependências (Dev 4) ──────────────────────────
+    # Tabela consolidada de todas as dependências (Dev 4 | Sprint 4)
     render_all_deps_table(result)
+
     st.divider()
 
-    # ── Gráficos em 3 colunas (Dev 4 pizza | Dev 5 defasagem | Dev 5 tamanho) ──
+    # Layout em 3 colunas: pizza | barras_outdated | barras_tamanho
     col_left, col_mid, col_right = st.columns([1, 1, 1])
     with col_left:
-        render_pie_chart(result)
+        render_pie_chart(result)          # Dev 4
     with col_mid:
-        render_bar_chart_outdated(result)
+        render_bar_chart_outdated(result)  # Dev 5 – defasagem
     with col_right:
-        render_size_bar_chart(result)
+        render_size_bar_chart(result)      # Dev 5 – tamanho de pacotes
 
     st.divider()
 
-    # ── Tabelas de análise ─────────────────────────────────────────────────────
-    render_zombie_table(result)   # Dev 1 + botão CSV enriquecido
+    # Tabelas de análise
+    render_zombie_table(result)  # Dev 1 + botão CSV
     st.divider()
-    render_ghost_table(result)    # Dev 2 + botão JSON
+    render_ghost_table(result)  # Dev 2 + botão JSON
     st.divider()
-    render_outdated_table(result) # Dev 3
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Processamento do upload (Dev 2: limpeza automática + exclusões configuráveis)
-# ══════════════════════════════════════════════════════════════════════════════
+    render_outdated_table(result)  # Dev 3
 
 
 def process_upload(uploaded_file: Any, excluded_dirs: list[str] | None = None) -> None:
@@ -285,6 +298,10 @@ def process_upload(uploaded_file: Any, excluded_dirs: list[str] | None = None) -
             padrões são usados (retrocompatível).
     """
     if uploaded_file is None:
+        return
+
+    if not uploaded_file.name.lower().endswith(".zip"):
+        st.error("🚨 **Formato inválido!** Por favor, envie apenas arquivos com a extensão **.zip**.")
         return
 
     file_size_mb = uploaded_file.size / (1024 * 1024)
@@ -321,7 +338,7 @@ def process_upload(uploaded_file: Any, excluded_dirs: list[str] | None = None) -
         finally:
             tmp_path.unlink(missing_ok=True)
 
-    # ── Etapa 2: Filtro (Dev 2: exclusões configuráveis) ──────────────────────
+    # ── Etapa 2: Filtro ───────────────────────────────────────────────────────
     with st.spinner("🔎 Filtrando arquivos relevantes..."):
         py_files = filter_extracted(extract_dir, extra_excluded_dirs=excluded_dirs)
 
@@ -331,8 +348,8 @@ def process_upload(uploaded_file: Any, excluded_dirs: list[str] | None = None) -
         for f in sorted(py_files):
             st.code(str(f.relative_to(extract_dir)))
 
-    # ── Etapa 3: Análise completa (Orquestrador + enriquecimento PyPI) ────────
-    with st.spinner("🧠 Executando análise de dependências e consultando PyPI..."):
+    # ── Etapa 3: Análise completa (Orquestrador) ──────────────────────────────
+    with st.spinner("🧠 Executando análise de dependências (pode levar alguns segundos)..."):
         try:
             result = run_full_analysis(str(extract_dir))
         except Exception as exc:  # noqa: BLE001
@@ -341,9 +358,14 @@ def process_upload(uploaded_file: Any, excluded_dirs: list[str] | None = None) -
             schedule_cleanup(session_id)
             return
 
+    # ── Etapa 4: Consulta PyPI (embutida no orquestrador, exibe aviso) ────────
+    with st.spinner("🌐 Cruzando versões com o PyPI..."):
+        # O orquestrador já realizou as chamadas; apenas aguardamos possível cache
+        pass
+
     st.divider()
 
-    # Persiste na sessão
+    # Persiste na sessão (dados já extraídos do modelo — temp pode ser limpa)
     st.session_state["extract_dir"] = str(extract_dir)
     st.session_state["session_id"] = session_id
     st.session_state["py_files"] = [str(f) for f in py_files]
@@ -352,7 +374,9 @@ def process_upload(uploaded_file: Any, excluded_dirs: list[str] | None = None) -
     # Renderiza relatório completo
     _render_report(result, extract_dir)
 
-    # ── Limpeza automática (Dev 2) ─────────────────────────────────────────────
+    # ── Limpeza automática ─────────────────────────────────────────────────────
+    # Executada APÓS o relatório ser renderizado, pois os dados já estão no
+    # dicionário 'result'. Os arquivos físicos temporários não são mais necessários.
     schedule_cleanup(session_id)
 
 
@@ -360,7 +384,7 @@ def render_footer() -> None:
     """Renderiza o rodapé da página."""
     st.divider()
     st.markdown(
-        "<small>🔬 DepCheck v0.4.1 — Sprint 4 Final</small>",
+        "<small>🔬 DepCheck v1.00</small>",
         unsafe_allow_html=True,
     )
 

@@ -52,14 +52,12 @@ def _compute_age_from_date(release_date_str: str | None) -> int | None:
     """
     if not release_date_str:
         return None
-    for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S"):
-        try:
-            release_dt = datetime.strptime(release_date_str, fmt)
-            delta = datetime.now() - release_dt
-            return max(0, delta.days)
-        except ValueError:
-            continue
-    return None
+    try:
+        release_dt = datetime.strptime(release_date_str, "%Y-%m-%dT%H:%M:%S")
+        delta = datetime.now() - release_dt
+        return max(0, delta.days)
+    except Exception:
+        return None
 
 
 def format_size_human(size_bytes: int) -> str:
@@ -86,7 +84,7 @@ def format_size_human(size_bytes: int) -> str:
         return "N/D"
     if size_bytes < 1024:
         return f"{size_bytes} B"
-    if size_bytes < 1024 ** 2:
+    if size_bytes < 1024**2:
         return f"{size_bytes / 1024:.1f} KB"
     return f"{size_bytes / 1024 ** 2:.1f} MB"
 

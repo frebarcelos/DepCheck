@@ -283,10 +283,10 @@ class TestBuildZombieCsvBytes:
         text = raw.decode("utf-8-sig")
         reader = csv.DictReader(io.StringIO(text), delimiter=";")
         assert reader.fieldnames is not None
-        assert "Pacote" in reader.fieldnames
-        assert "Status" in reader.fieldnames
-        assert "Tamanho (KB)" not in reader.fieldnames
-        assert "Idade (dias)" not in reader.fieldnames
+        assert "pacote" in reader.fieldnames
+        assert "status" in reader.fieldnames
+        assert "tamanho" not in reader.fieldnames
+        assert "idade_dias" not in reader.fieldnames
 
     def test_sem_enriched_contem_pacote_zumbi(self) -> None:
         """CSV sem enriquecimento contém a entrada do pacote zumbi."""
@@ -304,8 +304,8 @@ class TestBuildZombieCsvBytes:
         text = raw.decode("utf-8-sig")
         reader = csv.DictReader(io.StringIO(text), delimiter=";")
         assert reader.fieldnames is not None
-        assert "Tamanho (KB)" in reader.fieldnames
-        assert "Idade (dias)" in reader.fieldnames
+        assert "tamanho" in reader.fieldnames
+        assert "idade_dias" in reader.fieldnames
 
     def test_com_enriched_valores_corretos_no_csv(self) -> None:
         """CSV com enriquecimento contém os valores de tamanho e idade corretos."""
@@ -316,8 +316,8 @@ class TestBuildZombieCsvBytes:
         reader = csv.DictReader(io.StringIO(text), delimiter=";")
         rows = list(reader)
         assert len(rows) == 1
-        assert rows[0]["Tamanho (KB)"] == "50 KB"
-        assert rows[0]["Idade (dias)"] == "30"
+        assert rows[0]["tamanho"] == "50 KB"
+        assert rows[0]["idade_dias"] == "30"
 
     def test_sem_zombies_csv_apenas_cabecalho(self) -> None:
         """CSV com lista de zumbis vazia contém apenas o cabeçalho."""
@@ -369,7 +369,7 @@ class TestRenderZombieTable:
         result_vazio = {**MOCK_RESULT_PLAIN}
         result_vazio["dependencies"] = {**MOCK_RESULT_PLAIN["dependencies"], "zombies": []}
 
-        with patch.dict("sys.modules", {"streamlit": st_mock, "pandas": MagicMock()}):
+        with patch.object(report, "st", st_mock), patch.object(report, "pd", MagicMock()):
             report.render_zombie_table(result_vazio)
 
         st_mock.success.assert_called_once()
@@ -380,7 +380,7 @@ class TestRenderZombieTable:
 
         st_mock = self._make_st_mock()
 
-        with patch.dict("sys.modules", {"streamlit": st_mock, "pandas": MagicMock()}):
+        with patch.object(report, "st", st_mock), patch.object(report, "pd", MagicMock()):
             report.render_zombie_table(MOCK_RESULT_PLAIN)
 
         st_mock.error.assert_called_once()
@@ -393,7 +393,7 @@ class TestRenderZombieTable:
 
         st_mock = self._make_st_mock()
 
-        with patch.dict("sys.modules", {"streamlit": st_mock, "pandas": MagicMock()}):
+        with patch.object(report, "st", st_mock), patch.object(report, "pd", MagicMock()):
             report.render_zombie_table(MOCK_RESULT_PLAIN)
 
         st_mock.dataframe.assert_called_once()
@@ -404,7 +404,7 @@ class TestRenderZombieTable:
 
         st_mock = self._make_st_mock()
 
-        with patch.dict("sys.modules", {"streamlit": st_mock, "pandas": MagicMock()}):
+        with patch.object(report, "st", st_mock), patch.object(report, "pd", MagicMock()):
             report.render_zombie_table(MOCK_RESULT_ENRICHED)
 
         st_mock.dataframe.assert_called_once()
@@ -419,7 +419,7 @@ class TestRenderZombieTable:
 
         st_mock = self._make_st_mock()
 
-        with patch.dict("sys.modules", {"streamlit": st_mock, "pandas": MagicMock()}):
+        with patch.object(report, "st", st_mock), patch.object(report, "pd", MagicMock()):
             report.render_zombie_table(MOCK_RESULT_PLAIN)
 
         st_mock.dataframe.assert_called_once()
@@ -434,7 +434,7 @@ class TestRenderZombieTable:
 
         st_mock = self._make_st_mock()
 
-        with patch.dict("sys.modules", {"streamlit": st_mock, "pandas": MagicMock()}):
+        with patch.object(report, "st", st_mock), patch.object(report, "pd", MagicMock()):
             report.render_zombie_table(MOCK_RESULT_PLAIN)
 
         st_mock.markdown.assert_called()
@@ -446,7 +446,7 @@ class TestRenderZombieTable:
 
         st_mock = self._make_st_mock()
 
-        with patch.dict("sys.modules", {"streamlit": st_mock, "pandas": MagicMock()}):
+        with patch.object(report, "st", st_mock), patch.object(report, "pd", MagicMock()):
             # Não deve lançar exceção
             report.render_zombie_table(MOCK_RESULT_NO_ENRICHED_KEY)
 

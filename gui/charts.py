@@ -1,22 +1,27 @@
 """
-gui/charts.py  –  Dev 5 | Sprint 4
-Módulo de visualização de gráficos para análise de dependências.
+gui/charts.py  –  Dev 5 | Sprint 3
+Módulo de visualização de barras para defasagem de dependências.
 
 Dev 5 é responsável por:
-  - get_bar_chart_data()      → prepara dados brutos para gráfico de barras de defasagem
-  - render_bar_chart_outdated() → componente Streamlit com gráfico Plotly de barras (outdated)
-  - get_size_chart_data()     → prepara dados top-10 pacotes por tamanho
-  - render_size_bar_chart()   → componente Streamlit com gráfico Plotly de tamanho de pacotes
+  - get_bar_chart_data()          → prepara dados brutos para gráfico de barras
+  - render_bar_chart_outdated()   → componente Streamlit com gráfico Plotly de barras
 """
 from __future__ import annotations
 
 from typing import Any
 
+from core.constants import (
+    COLOR_OUTDATED_CRITICAL,
+    COLOR_OUTDATED_HIGH,
+    COLOR_OUTDATED_LOW,
+    COLOR_OUTDATED_MEDIUM,
+    COLOR_SIZE_L,
+    COLOR_SIZE_M,
+    COLOR_SIZE_S,
+    COLOR_SIZE_XL,
+)
 
-# ══════════════════════════════════════════════════════════════════════════════
 # GRÁFICO DE DEFASAGEM (Sprint 3)
-# ══════════════════════════════════════════════════════════════════════════════
-
 
 def get_bar_chart_data(result: dict[str, Any]) -> dict[str, list]:
     """Prepara os dados brutos para o gráfico de barras horizontais de defasagem.
@@ -75,12 +80,12 @@ def render_bar_chart_outdated(result: dict[str, Any]) -> None:
 
     def _color_for_days(d: int) -> str:
         if d > 365:
-            return "#ef4444"  # vermelho
+            return COLOR_OUTDATED_CRITICAL
         if d > 180:
-            return "#f97316"  # laranja
+            return COLOR_OUTDATED_HIGH
         if d > 90:
-            return "#f59e0b"  # amarelo
-        return "#22c55e"      # verde
+            return COLOR_OUTDATED_MEDIUM
+        return COLOR_OUTDATED_LOW
 
     bar_colors = [_color_for_days(d) for d in days]
 
@@ -118,11 +123,7 @@ def render_bar_chart_outdated(result: dict[str, Any]) -> None:
 
     st.plotly_chart(fig, use_container_width=True)
 
-
-# ══════════════════════════════════════════════════════════════════════════════
 # GRÁFICO DE TAMANHO DE PACOTES (Sprint 4)
-# ══════════════════════════════════════════════════════════════════════════════
-
 
 def get_size_chart_data(result: dict[str, Any]) -> dict[str, list]:
     """Prepara dados para gráfico de barras horizontais de tamanho de pacotes.
@@ -196,12 +197,12 @@ def render_size_bar_chart(result: dict[str, Any]) -> None:
     def _color_for_size(kb: float) -> str:
         ratio = kb / max_size if max_size > 0 else 0.0
         if ratio > 0.75:
-            return "#6366f1"   # roxo intenso
+            return COLOR_SIZE_XL
         if ratio > 0.50:
-            return "#818cf8"   # roxo médio
+            return COLOR_SIZE_L
         if ratio > 0.25:
-            return "#a5b4fc"   # roxo claro
-        return "#c7d2fe"       # lavanda
+            return COLOR_SIZE_M
+        return COLOR_SIZE_S
 
     bar_colors = [_color_for_size(kb) for kb in sizes_kb]
 

@@ -5,7 +5,6 @@ no pipeline do orquestrador.
 
 Paradigma: Procedimental — apenas funções, sem classes de domínio.
 """
-from __future__ import annotations
 
 from pathlib import Path
 from unittest.mock import patch

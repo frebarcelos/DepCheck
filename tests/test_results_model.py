@@ -28,8 +28,6 @@ def test_get_empty_result_model_has_expected_defaults() -> None:
         "total_zombies": 0,
         "total_ghosts": 0,
         "total_outdated": 0,
-        "total_size_bytes": 0,
-        "avg_age_days": None,
     }
     assert model["enriched_declared"] == {}
 

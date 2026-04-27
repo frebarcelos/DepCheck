@@ -1,11 +1,3 @@
-"""
-src/reporters/json_reporter.py  –  Dev 5 | Sprint 4
-Exportação de resultados de análise para JSON com metadados de exportação.
-
-Dev 5 é responsável por:
-  - export_to_json()  → serializa resultado completo (incluindo enriched_declared)
-                        com metadados exported_at e version.
-"""
 from __future__ import annotations
 
 import json
