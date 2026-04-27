@@ -27,6 +27,22 @@ from src.parsers.requirements_parser import parse_requirements
 logger = logging.getLogger(__name__)
 
 
+def _find_manifest(project_path: Path, filename: str) -> Path | None:
+    """Localiza um manifesto na raiz ou dentro da primeira subpasta (ZIPs com pasta raiz)."""
+    direct = project_path / filename
+    if direct.exists():
+        return direct
+    try:
+        for child in sorted(project_path.iterdir()):
+            if child.is_dir():
+                nested = child / filename
+                if nested.exists():
+                    return nested
+    except PermissionError:
+        pass
+    return None
+
+
 def _run_parsers(project_path: Path) -> list[str]:
     """
     Executa os parsers de manifesto (pyproject.toml e requirements.txt)
@@ -41,10 +57,10 @@ def _run_parsers(project_path: Path) -> list[str]:
         Em caso de falha em qualquer parser, o erro é logado e ignorado.
     """
     deps: dict[str, str] = {}
-    pyproject = project_path / "pyproject.toml"
-    req = project_path / "requirements.txt"
+    pyproject = _find_manifest(project_path, "pyproject.toml")
+    req = _find_manifest(project_path, "requirements.txt")
 
-    if pyproject.exists():
+    if pyproject:
         try:
             p_deps = parse_pyproject(pyproject)
             for k, v in p_deps.items():
@@ -53,7 +69,7 @@ def _run_parsers(project_path: Path) -> list[str]:
         except Exception:  # noqa: BLE001
             logger.warning("Falha ao parsear pyproject.toml em '%s'.", project_path, exc_info=True)
 
-    if req.exists():
+    if req:
         try:
             r_deps = parse_requirements(req)
             for k, v in r_deps.items():
