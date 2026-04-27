@@ -48,7 +48,8 @@ def _run_parsers(project_path: Path) -> list[str]:
         try:
             p_deps = parse_pyproject(pyproject)
             for k, v in p_deps.items():
-                deps[k] = f"{k}{v}"
+                # parse_pyproject já retorna a string completa (ex: "requests>=2.28.0")
+                deps[k] = v
         except Exception:  # noqa: BLE001
             logger.warning("Falha ao parsear pyproject.toml em '%s'.", project_path, exc_info=True)
 
@@ -56,7 +57,8 @@ def _run_parsers(project_path: Path) -> list[str]:
         try:
             r_deps = parse_requirements(req)
             for k, v in r_deps.items():
-                deps[k] = f"{k}{v}"
+                # parse_requirements retorna só o especificador (ex: ">=2.28.0")
+                deps.setdefault(k, f"{k}{v}")
         except Exception:  # noqa: BLE001
             logger.warning("Falha ao parsear requirements.txt em '%s'.", project_path, exc_info=True)
 
